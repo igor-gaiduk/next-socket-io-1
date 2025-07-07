@@ -25,7 +25,7 @@ app.prepare().then(() => {
     // CORS configuration for Socket.IO.
     // Adjust 'origin' to match your client-side application's URL.
     cors: {
-      origin: `http://${hostname}:${port}`, // Allow connections from your Next.js frontend
+      origin: `*`, // Allow connections from your Next.js frontend
       methods: ['GET', 'POST'],
       credentials: true
     }
