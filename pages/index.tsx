@@ -18,7 +18,7 @@ const Home = () => {
   useEffect(() => {
     // Initialize socket connection only once
     if (!socket) {
-      socket = io('/'); // Connect to your custom server URL
+      socket = io(':3000/'); // Connect to your custom server URL
 
       socket.on('connect', () => {
         console.log('Connected to Socket.IO server');
