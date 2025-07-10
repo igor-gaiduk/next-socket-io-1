@@ -1,57 +1,64 @@
-// This is a simple Next.js page that connects to the Socket.IO server.
 
-import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useState, useRef } from 'react';
 
-// Define the type for the Socket.IO client instance
-interface ClientSocket extends Socket {
-  // You can add custom event types here if needed
+// Define the type for the WebSocket client instance
+interface ClientWebSocket extends WebSocket {
+  // You can add custom properties or methods here if needed
 }
-
-let socket: ClientSocket; // Declare socket outside to persist across re-renders
 
 const Home = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const wsRef = useRef<ClientWebSocket | null>(null); // Use useRef to hold WebSocket instance
 
   useEffect(() => {
-    // Initialize socket connection only once
-    if (!socket) {
-      socket = io(':3000/'); // Connect to your custom server URL
+    // Get the WebSocket server URL from an environment variable
+    // In Next.js, environment variables prefixed with NEXT_PUBLIC_ are exposed to the browser.
+    const WS_SERVER_BASE_URL = process.env.NEXT_PUBLIC_SOCKET_IO_SERVER_URL || 'ws://localhost:3000';
+    const WS_PATH = '/message'; // The custom path for WebSockets
 
-      socket.on('connect', () => {
-        console.log('Connected to Socket.IO server');
+    // Construct the full WebSocket URL
+    const fullWsUrl = `${WS_SERVER_BASE_URL}${WS_PATH}`;
+
+    // Initialize WebSocket connection only once
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      const ws = new WebSocket(fullWsUrl);
+
+      ws.onopen = () => {
+        console.log('Connected to native WebSocket server');
         setIsConnected(true);
-      });
+      };
 
-      socket.on('disconnect', () => {
-        console.log('Disconnected from Socket.IO server');
+      ws.onmessage = (event) => {
+        setMessages((prevMessages) => [...prevMessages, event.data as string]);
+      };
+
+      ws.onclose = () => {
+        console.log('Disconnected from native WebSocket server');
         setIsConnected(false);
-      });
+      };
 
-      // Listen for 'message' events from the server
-      socket.on('message', (msg: string) => {
-        setMessages((prevMessages) => [...prevMessages, msg]);
-      });
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false); // Update connection status on error
+      };
 
-      socket.on('connect_error', (err) => {
-        console.error('Socket.IO connection error:', err.message);
-      });
+      wsRef.current = ws as ClientWebSocket; // Store the WebSocket instance in the ref
     }
 
-    // Clean up the socket connection when the component unmounts
+    // Clean up the WebSocket connection when the component unmounts
     return () => {
-      if (socket && socket.connected) {
-        socket.disconnect();
-        console.log('Socket disconnected on component unmount');
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+        console.log('WebSocket disconnected on component unmount');
       }
     };
   }, []); // Empty dependency array ensures this runs once on mount
 
   const sendMessage = () => {
-    if (socket && socket.connected && message.trim()) {
-      socket.emit('message', message); // Emit 'message' event to the server
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && message.trim()) {
+      wsRef.current.send(message); // Send message via WebSocket
       setMessage(''); // Clear input field
     }
   };
@@ -63,7 +70,7 @@ const Home = () => {
 
       <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Next.js Socket.IO Chat
+          Next.js Native WebSocket Chat
         </h1>
 
         <div className="mb-4 text-center">
